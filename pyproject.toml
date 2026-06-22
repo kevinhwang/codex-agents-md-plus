@@ -1,0 +1,26 @@
+[project]
+name = "codex-agents-md-plus"
+version = "0.1.0"
+requires-python = ">=3.11"
+description = "Codex plugin that augments AGENTS.md context with AGENTS.local.md overlays and @-reference resolution."
+
+[tool.pytest.ini_options]
+pythonpath = ["plugins/codex-agents-md-plus/src"]
+testpaths = ["plugins/codex-agents-md-plus/tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+src = ["plugins/codex-agents-md-plus/src"]
+
+[tool.ruff.lint]
+# Sensible default set: pycodestyle (E/W), pyflakes (F), isort (I), pyupgrade (UP),
+# bugbear (B), comprehensions (C4), simplify (SIM), implicit-string-concat (ISC).
+select = ["E", "W", "F", "I", "UP", "B", "C4", "SIM", "ISC"]
+ignore = [
+    "E501",   # line length (formatter handles this)
+    "ISC001", # disabled to coexist with the formatter
+]
+
+[tool.ruff.lint.per-file-ignores]
+"plugins/codex-agents-md-plus/tests/*.py" = ["B018"]  # tests intentionally evaluate expressions

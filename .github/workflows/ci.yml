@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - .editorconfig
+      - .github/dependabot.yml
+      - .gitignore
+      - "*.md"
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - .editorconfig
+      - .github/dependabot.yml
+      - .gitignore
+      - "*.md"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+
+      - name: Install dev tooling
+        run: python -m pip install --upgrade pip pytest ruff
+
+      - name: Ruff format check
+        run: ruff format --check .
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Manifest sanity check
+        run: |
+          python -c "
+          import json
+          for path in (
+              '.agents/plugins/marketplace.json',
+              'plugins/codex-agents-md-plus/.codex-plugin/plugin.json',
+              'plugins/codex-agents-md-plus/hooks/hooks.json',
+          ):
+              json.load(open(path))
+          print('OK')
+          "
+
+      - name: AST parse all sources
+        run: |
+          python -c "
+          import ast, glob
+          paths = sorted(glob.glob('plugins/codex-agents-md-plus/src/**/*.py', recursive=True))
+          for path in paths:
+              ast.parse(open(path).read())
+          print(f'OK ({len(paths)} files)')
+          "
+
+      - name: Run tests
+        run: python -m pytest -q
