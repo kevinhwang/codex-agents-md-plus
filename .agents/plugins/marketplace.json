@@ -1,0 +1,16 @@
+{
+  "name": "codex-agents-md-plus",
+  "metadata": {
+    "description": "Single-plugin marketplace for codex-agents-md-plus.",
+    "version": "0.1.0"
+  },
+  "owner": {
+    "name": "Kevin Hwang"
+  },
+  "plugins": [
+    {
+      "name": "codex-agents-md-plus",
+      "source": "./plugins/codex-agents-md-plus"
+    }
+  ]
+}

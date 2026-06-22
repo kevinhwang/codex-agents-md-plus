@@ -1,0 +1,14 @@
+{
+  "name": "codex-agents-md-plus",
+  "version": "0.1.0",
+  "description": "Codex plugin that augments AGENTS.md context: injects AGENTS.local.md overlays and resolves @-references found in AGENTS-style files into a sidecar reference index.",
+  "author": {
+    "name": "Kevin Hwang"
+  },
+  "keywords": [
+    "codex",
+    "agents.md",
+    "hooks",
+    "context"
+  ]
+}

@@ -1,0 +1,54 @@
+###### Python ######################################################
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg
+*.egg-info/
+.eggs/
+wheels/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.cache
+.tox/
+.nox/
+
+# Type checkers
+.mypy_cache/
+.dmypy.json
+.pyre/
+.pytype/
+.ruff_cache/
+
+###### Editors / IDEs ##############################################
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+###### OS ##########################################################
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Desktop.ini
