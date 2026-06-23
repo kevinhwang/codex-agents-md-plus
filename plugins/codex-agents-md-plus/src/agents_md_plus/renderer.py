@@ -13,9 +13,10 @@ a security boundary — the per-file inner seals are.
 from __future__ import annotations
 
 import hashlib
+import html
 from collections.abc import Iterable
 
-from .models import InstructionFile, InstructionRole, Overlay, ReferenceDoc
+from .models import InstructionFile, InstructionRole, NativeSegment, Overlay, ReferenceDoc
 
 MARKER_PREFIX = "<!-- codex-agents-md-plus sha256:"
 
@@ -41,9 +42,19 @@ _REFERENCE_INTRO = (
     "Not the complete set of active instructions — the overlays above are active because they're local overlays, not because they appear here."
 )
 
+_NATIVE_SEGMENTS_INTRO = (
+    "Codex's native `<INSTRUCTIONS>` preamble flattens these filesystem-backed AGENTS.md-family files in order. "
+    "When a global/user-tier segment is followed by project segments, Codex inserts a line containing `--- project-doc ---` before the first project segment; other adjacent segment bodies are joined by blank lines."
+)
+
+_NATIVE_SEGMENTS_CLOSE = "Use this map to disambiguate provenance and attribution. Interpret relative filesystem references in each segment relative to that file's containing directory."
+
 
 _CONTAINER_OPEN = "<agents_md_extra_context>"
 _CONTAINER_CLOSE = "</agents_md_extra_context>"
+_NATIVE_SEGMENTS_OPEN = "<codex_native_agents_md_disambiguation>"
+_NATIVE_SEGMENTS_CLOSE_TAG = "</codex_native_agents_md_disambiguation>"
+_FIRST_LINE_MAX_CHARS = 96
 
 
 def render(overlay: Overlay) -> str:
@@ -53,6 +64,8 @@ def render(overlay: Overlay) -> str:
     overlays = [f for f in overlay.instructions if f.role is InstructionRole.OVERLAY]
     fallbacks = [f for f in overlay.instructions if f.role is InstructionRole.FALLBACK]
 
+    if overlay.native_segments:
+        inner_sections.append(_render_native_segments_section(overlay.native_segments))
     if overlays:
         inner_sections.append(_render_instruction_section("Local AGENTS overlays", _OVERLAY_INTRO, overlays))
     if fallbacks:
@@ -90,6 +103,21 @@ def _render_reference_section(refs: Iterable[ReferenceDoc]) -> str:
     return "\n\n".join(parts)
 
 
+def _render_native_segments_section(segments: Iterable[NativeSegment]) -> str:
+    lines = ["## Codex native AGENTS disambiguation", _NATIVE_SEGMENTS_OPEN, _NATIVE_SEGMENTS_INTRO, ""]
+    for index, segment in enumerate(segments):
+        attrs = [
+            f'index="{index}"',
+            f'path="{_escape_attr(str(segment.path))}"',
+        ]
+        first_line = _ellipsize_first_line(segment.first_line)
+        if first_line:
+            attrs.append(f'first_line="{_escape_attr(first_line)}"')
+        lines.append(f"<segment {' '.join(attrs)} />")
+    lines.extend(["", _NATIVE_SEGMENTS_CLOSE, _NATIVE_SEGMENTS_CLOSE_TAG])
+    return "\n".join(lines)
+
+
 def _render_skipped_section(overlay: Overlay) -> str:
     lines = ["## Skipped references"]
     lines.extend(
@@ -108,3 +136,14 @@ def _wrap_file(path: object, text: str, *, truncated: bool) -> str:
     nonce = hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
     truncated_note = "\n\n[Truncated at CODEX_AGENTS_MD_PLUS_MAX_FILE_BYTES.]" if truncated else ""
     return f'<file:{nonce} path="{path}">\n{text.rstrip()}{truncated_note}\n</file:{nonce}>'
+
+
+def _escape_attr(text: str) -> str:
+    return html.escape(text, quote=True)
+
+
+def _ellipsize_first_line(text: str) -> str:
+    line = " ".join(text.split())
+    if len(line) <= _FIRST_LINE_MAX_CHARS:
+        return line
+    return line[: _FIRST_LINE_MAX_CHARS - 3].rstrip() + "..."

@@ -44,7 +44,7 @@ Codex has no in-session cwd-mutation concept (no `/cd`, no `EnterWorktree` tool)
 |-----------------------------|------------------------------------------------------------------------|-----------------------------------------------------------------|---------------------------------------------------------------------------|
 | **Project file**            | `CLAUDE.md`                                                            | `AGENTS.md`                                                     | unchanged                                                                 |
 | **Project override**        | N/A                                                                    | `AGENTS.override.md` (replaces `AGENTS.md`)                     | unchanged                                                                 |
-| **User-tier file**          | `~/.claude/CLAUDE.md`                                                  | `~/.codex/AGENTS.md`                                            | delegated to Codex                                                        |
+| **User-tier file**          | `~/.claude/CLAUDE.md`                                                  | `~/.codex/AGENTS.md`                                            | delegated to Codex; provenance mapped                                     |
 | **Subdir variants**         | `<dir>/.claude/CLAUDE.md`, `<dir>/.claude/rules`                       | N/A                                                             | N/A                                                                       |
 | **Walk anchor**             | mutable per-agent working directory (resets on `/cd`, `EnterWorktree`) | session-start cwd                                               | per-event: session uses rollout-transcript cwd; subagent uses its own cwd |
 | **Walk shape**              | cwd-ancestor chain up to FS root                                       | project-root (default: nearest `.git`) → cwd                    | project-root → cwd, plus worktree-pivoted parallel walk                   |
@@ -55,7 +55,7 @@ Codex has no in-session cwd-mutation concept (no `/cd`, no `EnterWorktree` tool)
 
 This plugin is a [Codex hook](https://github.com/openai/codex). It registers two events: `SessionStart` (matching `startup|resume|clear|compact`) and `SubagentStart` (matching all subagent types). On each event, it reads the hook payload, builds an overlay block, and emits it as `additionalContext`. Codex inserts the block as a developer-role message in the conversation transcript.
 
-The plugin never modifies, replaces, or duplicates Codex's native AGENTS.md handling — Codex's own user-role `<INSTRUCTIONS>` block still appears as it always does. The plugin's output is a *sidecar* that surfaces what Codex's native walk would miss.
+The plugin never modifies, replaces, or duplicates Codex's native AGENTS.md handling — Codex's own user-role `<INSTRUCTIONS>` block still appears as it always does. The plugin's output is a *sidecar* that surfaces what Codex's native walk would miss and adds a compact provenance map for the native block.
 
 ### Walk strategy
 
@@ -87,8 +87,9 @@ Expansion is breadth-first. References are deduplicated by canonical path, cycle
 
 ### Rendered output
 
-The plugin emits a single block wrapped in `<agents_md_extra_context>…</agents_md_extra_context>` as `additionalContext`. Codex inserts it into the conversation transcript as a developer-role message. Inside, each file's body is wrapped in its own per-file `<file:… path="…">` tag. Subsections:
+The plugin emits a single block wrapped in `<agents_md_extra_context>…</agents_md_extra_context>` as `additionalContext`. Codex inserts it into the conversation transcript as a developer-role message. Inside, each file body emitted by the plugin is wrapped in its own per-file `<file:… path="…">` tag. Subsections:
 
+- **Codex native AGENTS disambiguation** — metadata-only map for filesystem-backed AGENTS files Codex already rendered natively.
 - **Local AGENTS overlays** — `AGENTS.local.md` bodies.
 - **Inherited AGENTS instructions** — project-typed files from main-repo paths Codex's native walk would not have reached.
 - **Referenced document index** — `@`-expanded documents.
@@ -100,6 +101,8 @@ Two properties fall out of the per-file wrapping:
 - **Sealed boundaries.** Each file's closing tag is bound to its content. A hostile file body can't forge that closing tag from the inside, so untrusted file content stays cleanly contained within its wrapper.
 
 The preamble explicitly frames the contents as user/project-tier guidance, equivalent in authority to AGENTS.md — even though the transport role is `developer`.
+
+For Codex-native AGENTS files, the plugin emits paths and short first-line anchors but not bodies. This avoids duplicating Codex's own `<INSTRUCTIONS>` content while giving the model enough structure to disambiguate flattened segments and resolve relative filesystem references against each source file's containing directory. Current Codex inserts `--- project-doc ---` on the transition from Codex-home/global instructions to project instructions; adjacent project instruction files are otherwise joined by blank lines.
 
 ### Lifecycle refresh
 

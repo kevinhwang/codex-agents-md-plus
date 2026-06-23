@@ -4,7 +4,14 @@ import hashlib
 import re
 from pathlib import Path
 
-from agents_md_plus.models import InstructionFile, InstructionRole, Overlay, ReferenceDoc, SkippedReference
+from agents_md_plus.models import (
+    InstructionFile,
+    InstructionRole,
+    NativeSegment,
+    Overlay,
+    ReferenceDoc,
+    SkippedReference,
+)
 from agents_md_plus.renderer import MARKER_PREFIX, marker_for, render, render_with_marker
 
 
@@ -49,6 +56,29 @@ def test_native_files_not_rendered(tmp_path: Path) -> None:
     body = render(overlay)
     assert "native doc" not in body
     assert "## Local AGENTS overlays" not in body
+
+
+def test_native_segments_rendered_as_compact_disambiguation_map(tmp_path: Path) -> None:
+    overlay = Overlay(
+        instructions=(_file(tmp_path / "AGENTS.md", "native doc", InstructionRole.NATIVE),),
+        references=(),
+        native_segments=(
+            NativeSegment(path=tmp_path / "AGENTS.md", first_line='Use "quoted" & <special> paths.'),
+            NativeSegment(path=tmp_path / "pkg" / "AGENTS.override.md", first_line="x" * 120),
+        ),
+        skipped=(),
+    )
+
+    body = render(overlay)
+
+    assert "<codex_native_agents_md_disambiguation>" in body
+    assert (
+        f'index="0" path="{tmp_path / "AGENTS.md"}" first_line="Use &quot;quoted&quot; &amp; &lt;special&gt; paths."'
+        in body
+    )
+    assert f'index="1" path="{tmp_path / "pkg" / "AGENTS.override.md"}" first_line="{"x" * 93}..."' in body
+    assert "native doc" not in body
+    assert "</codex_native_agents_md_disambiguation>" in body
 
 
 def test_references_and_skipped_rendered(tmp_path: Path) -> None:

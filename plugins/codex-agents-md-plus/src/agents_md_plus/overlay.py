@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import instructions, nativepull, refgraph, scanroots
+from . import instructions, native_segments, nativepull, refgraph, scanroots
 from .config import Config
 from .models import (
     InstructionFamily,
@@ -37,7 +37,13 @@ def build(payload_cwd: Path, session_cwd: Path | None, config: Config) -> Overla
     )
     guards = _reference_guards(payload_cwd, session_cwd, roots, config)
     result = refgraph.expand(files, guards, config)
-    return Overlay(instructions=files, references=result.references, skipped=result.skipped)
+    native_cwd = session_cwd if session_cwd is not None else payload_cwd
+    return Overlay(
+        instructions=files,
+        references=result.references,
+        native_segments=native_segments.discover(native_cwd, config),
+        skipped=result.skipped,
+    )
 
 
 def _discover_files(roots: ScanRoots, config: Config) -> tuple[ResolvedFile, ...]:

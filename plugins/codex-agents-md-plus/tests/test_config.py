@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from agents_md_plus.config import Config
 
 
@@ -11,6 +13,7 @@ def test_defaults_when_env_empty() -> None:
     assert cfg.max_total_reference_bytes == 128 * 1024
     assert cfg.allow_outside_root is False
     assert cfg.fallback_filenames == ()
+    assert cfg.codex_home == Path.home() / ".codex"
 
 
 def test_env_parsing() -> None:
@@ -22,6 +25,7 @@ def test_env_parsing() -> None:
             "CODEX_AGENTS_MD_PLUS_MAX_TOTAL_REFERENCE_BYTES": "8192",
             "CODEX_AGENTS_MD_PLUS_ALLOW_OUTSIDE_ROOT": "yes",
             "CODEX_AGENTS_MD_PLUS_FALLBACK_FILENAMES": "INSTRUCTIONS.md,CONTRIBUTING.md,, ",
+            "CODEX_HOME": "/tmp/codex-home",
         }
     )
     assert cfg.max_depth == 9
@@ -30,6 +34,18 @@ def test_env_parsing() -> None:
     assert cfg.max_total_reference_bytes == 8192
     assert cfg.allow_outside_root is True
     assert cfg.fallback_filenames == ("INSTRUCTIONS.md", "CONTRIBUTING.md")
+    assert cfg.codex_home == Path("/tmp/codex-home")
+
+
+def test_prefixed_codex_home_overrides_codex_home() -> None:
+    cfg = Config.from_env(
+        {
+            "CODEX_HOME": "/tmp/default-codex-home",
+            "CODEX_AGENTS_MD_PLUS_CODEX_HOME": "/tmp/plugin-codex-home",
+        }
+    )
+
+    assert cfg.codex_home == Path("/tmp/plugin-codex-home")
 
 
 def test_bad_int_falls_back_to_default() -> None:

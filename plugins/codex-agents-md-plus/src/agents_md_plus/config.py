@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 from .models import LOCAL_NAME
 
@@ -18,6 +19,7 @@ class Config:
     max_total_reference_bytes: int = 128 * 1024
     allow_outside_root: bool = False
     fallback_filenames: tuple[str, ...] = ()
+    codex_home: Path | None = None
 
     @classmethod
     def from_env(cls, environ: dict[str, str] | None = None) -> Config:
@@ -33,6 +35,9 @@ class Config:
             ),
             allow_outside_root=_env_bool(environ, f"{_PREFIX}ALLOW_OUTSIDE_ROOT", cls.allow_outside_root),
             fallback_filenames=_env_csv(environ, f"{_PREFIX}FALLBACK_FILENAMES"),
+            codex_home=_env_path(environ, f"{_PREFIX}CODEX_HOME")
+            or _env_path(environ, "CODEX_HOME")
+            or Path.home() / ".codex",
         )
 
     @property
@@ -73,3 +78,10 @@ def _env_bool(environ: dict[str, str], name: str, default: bool) -> bool:
 def _env_csv(environ: dict[str, str], name: str) -> tuple[str, ...]:
     raw = environ.get(name, "")
     return tuple(item.strip() for item in raw.split(",") if item.strip())
+
+
+def _env_path(environ: dict[str, str], name: str) -> Path | None:
+    raw = environ.get(name)
+    if raw is None or not raw.strip():
+        return None
+    return Path(raw).expanduser()

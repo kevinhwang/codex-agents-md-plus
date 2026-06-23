@@ -64,6 +64,12 @@ class ReferenceDoc:
 
 
 @dataclass(frozen=True)
+class NativeSegment:
+    path: Path
+    first_line: str
+
+
+@dataclass(frozen=True)
 class SkippedReference:
     token: str
     source: Path
@@ -119,7 +125,8 @@ class Overlay:
 
     instructions: tuple[InstructionFile, ...]
     references: tuple[ReferenceDoc, ...]
-    skipped: tuple[SkippedReference, ...]
+    native_segments: tuple[NativeSegment, ...] = ()
+    skipped: tuple[SkippedReference, ...] = ()
 
     @property
     def renderable_instructions(self) -> tuple[InstructionFile, ...]:
@@ -128,6 +135,6 @@ class Overlay:
 
     @property
     def is_empty(self) -> bool:
-        if self.references or self.skipped:
+        if self.references or self.native_segments or self.skipped:
             return False
         return not any(item.role is not InstructionRole.NATIVE for item in self.instructions)
