@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import deque
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -28,6 +29,7 @@ class _PendingRef:
     token: str
     target: Path
     depth: int
+    guards: tuple[Path, ...]
 
 
 class _DropKind(Enum):
@@ -47,6 +49,8 @@ def expand(
     seeds: tuple[InstructionFile, ...],
     guards: tuple[Path, ...],
     config: Config,
+    *,
+    seed_guards: Mapping[Path, tuple[Path, ...]] | None = None,
 ) -> ExpandResult:
     """Walk `@`-references starting from `seeds`.
 
@@ -61,17 +65,16 @@ def expand(
     pending: deque[_PendingRef] = deque()
     effective_budget = max(0, config.max_total_reference_bytes - _RENDER_OVERHEAD_HEADROOM_BYTES)
 
+    seed_guards = seed_guards or {}
     for seed in seeds:
-        _enqueue_from(pending, seed.path, seed.text, depth=1)
+        _enqueue_from(pending, seed.path, seed.text, depth=1, guards=seed_guards.get(seed.path, guards))
 
     total_bytes = 0
     while pending:
         ref = pending.popleft()
         target = normalize(ref.target)
 
-        drop = _classify(
-            ref, target, seed_paths, seen, len(references_out), total_bytes, effective_budget, guards, config
-        )
+        drop = _classify(ref, target, seed_paths, seen, len(references_out), total_bytes, effective_budget, config)
         if drop is not None:
             if drop.kind is _DropKind.REPORT:
                 skipped.append(SkippedReference(token=ref.token, source=ref.source, reason=drop.reason))
@@ -88,7 +91,7 @@ def expand(
         seen.add(target)
         references_out.append(ReferenceDoc(path=target, text=text, truncated=truncated))
 
-        _enqueue_from(pending, target, text, depth=ref.depth + 1)
+        _enqueue_from(pending, target, text, depth=ref.depth + 1, guards=ref.guards)
 
     return ExpandResult(references=tuple(references_out), skipped=tuple(skipped))
 
@@ -99,6 +102,7 @@ def _enqueue_from(
     text: str,
     *,
     depth: int,
+    guards: tuple[Path, ...],
 ) -> None:
     """Tokenize `text` and enqueue each `@`-reference as a `_PendingRef`."""
     for token in references.extract_tokens(text):
@@ -108,6 +112,7 @@ def _enqueue_from(
                 token=token,
                 target=references.resolve(token, source.parent),
                 depth=depth,
+                guards=guards,
             )
         )
 
@@ -120,7 +125,6 @@ def _classify(
     accepted_count: int,
     total_bytes: int,
     effective_budget: int,
-    guards: tuple[Path, ...],
     config: Config,
 ) -> _Drop | None:
     """Whether to drop this pending reference, and how to report it."""
@@ -128,8 +132,8 @@ def _classify(
         return _Drop(_DropKind.REPORT, f"max depth {config.max_depth} exceeded")
     if target in seed_paths or target in seen:
         return _Drop(_DropKind.SILENT)
-    if not config.allow_outside_root and not is_within_any(target, guards):
-        guards_text = "; ".join(str(g) for g in guards)
+    if not config.allow_outside_root and not is_within_any(target, ref.guards):
+        guards_text = "; ".join(str(g) for g in ref.guards)
         return _Drop(_DropKind.REPORT, f"resolved outside session/cwd guards: {guards_text}")
     if not references.looks_like_text_file(target):
         return _Drop(_DropKind.REPORT, "target does not look like a text file")

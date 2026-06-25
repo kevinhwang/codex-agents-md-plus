@@ -51,7 +51,7 @@ Modules under `src/agents_md_plus/`:
 | `gitworktree`  | Pure-Python `.git` linkfile parser → main worktree resolution.                                  |
 | `hookio`       | `HookPayload` dataclass + stdin/stdout JSON protocol.                                           |
 | `scanroots`    | Plan the primary/parallel directories to scan.                                                  |
-| `instructions` | Per-directory file lookup (`AGENTS.override.md` / `AGENTS.md` / `AGENTS.local.md` + fallbacks). |
+| `instructions` | Codex-home overlay + per-directory file lookup (`AGENTS.override.md` / `AGENTS.md` / `AGENTS.local.md` + fallbacks). |
 | `native_segments` | Metadata-only reconstruction of the filesystem-backed AGENTS files Codex renders natively.  |
 | `references`   | `@`-reference tokenizer (markdown-aware) + path resolver.                                       |
 | `refgraph`     | BFS expansion of `@`-references with budget + cycle tracking.                                   |

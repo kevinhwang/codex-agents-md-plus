@@ -19,6 +19,7 @@ from pathlib import Path
 from . import instructions, native_segments, nativepull, refgraph, scanroots
 from .config import Config
 from .models import (
+    LOCAL_NAME,
     InstructionFamily,
     InstructionFile,
     InstructionRole,
@@ -36,7 +37,7 @@ def build(payload_cwd: Path, session_cwd: Path | None, config: Config) -> Overla
         for raw in _discover_files(roots, config)
     )
     guards = _reference_guards(payload_cwd, session_cwd, roots, config)
-    result = refgraph.expand(files, guards, config)
+    result = refgraph.expand(files, guards, config, seed_guards=_seed_reference_guards(files, config))
     native_cwd = session_cwd if session_cwd is not None else payload_cwd
     return Overlay(
         instructions=files,
@@ -60,6 +61,10 @@ def _discover_files(roots: ScanRoots, config: Config) -> tuple[ResolvedFile, ...
         if file.path not in seen:
             seen.add(file.path)
             result.append(file)
+
+    global_overlay = instructions.resolve_codex_home_overlay(config)
+    if global_overlay is not None:
+        emit(global_overlay)
 
     for pair in roots.pairs:
         for file in instructions.resolve_for_directory(pair.primary, pair.parallel, config):
@@ -107,3 +112,15 @@ def _reference_guards(
     guards.extend(pair.parallel for pair in roots.pairs if pair.parallel is not None)
     guards.extend(roots.extra_parallel_dirs)
     return tuple(dict.fromkeys(guards))
+
+
+def _seed_reference_guards(
+    files: tuple[InstructionFile, ...],
+    config: Config,
+) -> dict[Path, tuple[Path, ...]]:
+    if config.allow_outside_root or config.codex_home is None:
+        return {}
+
+    codex_home = normalize(config.codex_home)
+    local_overlay = codex_home / LOCAL_NAME
+    return {file.path: (codex_home,) for file in files if file.path == local_overlay}

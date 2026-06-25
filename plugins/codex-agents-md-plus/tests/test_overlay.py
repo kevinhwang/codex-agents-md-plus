@@ -41,6 +41,22 @@ def test_simple_repo_local_overlay(tmp_path: Path) -> None:
     assert (repo / "AGENTS.local.md").resolve() in renderable_paths
 
 
+def test_codex_home_local_overlay_precedes_project_overlay(tmp_path: Path) -> None:
+    codex_home = tmp_path / "codex-home"
+    codex_home.mkdir()
+    (codex_home / "AGENTS.local.md").write_text("global local")
+    repo = _make_main_repo(tmp_path)
+    (repo / "AGENTS.local.md").write_text("repo local")
+
+    overlay = build(payload_cwd=repo, session_cwd=repo, config=Config(codex_home=codex_home))
+
+    overlay_paths = [f.path for f in overlay.instructions if f.role is InstructionRole.OVERLAY]
+    assert overlay_paths == [
+        (codex_home / "AGENTS.local.md").resolve(),
+        (repo / "AGENTS.local.md").resolve(),
+    ]
+
+
 def test_worktree_falls_back_to_main_repo_local(tmp_path: Path) -> None:
     main = _make_main_repo(tmp_path)
     (main / "AGENTS.md").write_text("main agents")
@@ -113,6 +129,28 @@ def test_references_resolve_through_fallback(tmp_path: Path) -> None:
 
     ref_paths = {r.path for r in overlay.references}
     assert (docs / "extra.md").resolve() in ref_paths
+
+
+def test_codex_home_reference_guard_does_not_widen_project_references(tmp_path: Path) -> None:
+    codex_home = tmp_path / "codex-home"
+    codex_home.mkdir()
+    (codex_home / "AGENTS.local.md").write_text("@notes.md\n")
+    (codex_home / "notes.md").write_text("global note")
+    (codex_home / "secret.txt").write_text("codex-home secret")
+
+    repo = _make_main_repo(tmp_path)
+    secret = codex_home / "secret.txt"
+    (repo / "AGENTS.local.md").write_text(f"@{secret}\n")
+
+    overlay = build(payload_cwd=repo, session_cwd=repo, config=Config(codex_home=codex_home))
+
+    ref_paths = {r.path for r in overlay.references}
+    assert (codex_home / "notes.md").resolve() in ref_paths
+    assert secret.resolve() not in ref_paths
+    assert any(
+        skipped.token == str(secret) and "resolved outside session/cwd guards" in skipped.reason
+        for skipped in overlay.skipped
+    )
 
 
 def test_empty_when_nothing_to_show(tmp_path: Path) -> None:

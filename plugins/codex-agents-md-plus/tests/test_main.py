@@ -103,6 +103,24 @@ def test_session_start_native_disambiguation_includes_codex_home_first(tmp_path:
     assert f'index="1" path="{repo / "AGENTS.md"}" first_line="project first line"' in text
 
 
+def test_session_start_emits_codex_home_local_overlay(tmp_path: Path) -> None:
+    codex_home = tmp_path / "codex-home"
+    repo = tmp_path / "repo"
+    codex_home.mkdir()
+    (repo / ".git").mkdir(parents=True)
+    (codex_home / "AGENTS.local.md").write_text("global local overlay")
+    stdin = io.StringIO(json.dumps(_payload(repo)))
+    stdout = io.StringIO()
+
+    rc = run(stdin, stdout, io.StringIO(), Config(codex_home=codex_home))
+
+    assert rc == 0
+    text = _additional_context(stdout)
+    assert MARKER_PREFIX in text
+    assert str(codex_home / "AGENTS.local.md") in text
+    assert "global local overlay" in text
+
+
 def test_emits_nothing_for_empty_repo(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     (repo / ".git").mkdir(parents=True)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from agents_md_plus.config import Config
-from agents_md_plus.instructions import resolve_for_directory
+from agents_md_plus.instructions import resolve_codex_home_overlay, resolve_for_directory
 from agents_md_plus.models import InstructionFamily
 
 
@@ -49,6 +49,18 @@ def test_local_overlay_independent_of_project_file(tmp_path: Path) -> None:
     by_family = {file.family: file for file in files}
     assert by_family[InstructionFamily.OVERLAY].path == (primary / "AGENTS.local.md").resolve()
     assert by_family[InstructionFamily.PROJECT].path == (parallel / "AGENTS.md").resolve()
+
+
+def test_codex_home_local_overlay(tmp_path: Path) -> None:
+    codex_home = tmp_path / "codex-home"
+    codex_home.mkdir()
+    (codex_home / "AGENTS.local.md").write_text("global local")
+
+    file = resolve_codex_home_overlay(Config(codex_home=codex_home))
+
+    assert file is not None
+    assert file.path == (codex_home / "AGENTS.local.md").resolve()
+    assert file.family is InstructionFamily.OVERLAY
 
 
 def test_local_falls_back_to_parallel(tmp_path: Path) -> None:

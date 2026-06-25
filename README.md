@@ -4,7 +4,7 @@
 
 <img src="docs/assets/logo.png" width="128px" alt="logo">
 
-A [Codex CLI plugin](https://github.com/openai/codex) that improves AGENTS.md handling: adds support for additive `AGENTS.local.md` overlays and recursive `@`-reference expansion, with end-to-end support for linked git worktrees.
+A [Codex CLI plugin](https://github.com/openai/codex) that improves AGENTS.md handling: adds support for additive `AGENTS.local.md` overlays, including `~/.codex/AGENTS.local.md`, and recursive `@`-reference expansion, with end-to-end support for linked git worktrees.
 
 ```shell
 codex plugin marketplace add github.com/kevinhwang/codex-agents-md-plus
@@ -28,7 +28,7 @@ It also handles a worktree case Claude Code does not: an `AGENTS.local.md` that 
 
 | Feature                                                                          | Claude Code                        | Codex (native)                                                       | Codex + this plugin                                    |
 |----------------------------------------------------------------------------------|------------------------------------|----------------------------------------------------------------------|--------------------------------------------------------|
-| **Additive local overlay** (`CLAUDE.local.md` / `AGENTS.local.md`)               | ✅                                  | ❌                                                                    | ✅                                                      |
+| **Additive local overlay** (`CLAUDE.local.md` / `AGENTS.local.md`)               | ✅                                  | ❌                                                                    | ✅ (`~/.codex` + project/worktree)                     |
 | **`@`-reference expansion**                                                      | ✅                                  | ❌                                                                    | ✅                                                      |
 | **Linked worktree (nested) pulls main-repo overlay**                             | ✅                                  | ❌                                                                    | ✅                                                      |
 | **Linked worktree (sibling) pulls main-repo overlay**                            | ❌                                  | ❌                                                                    | ✅                                                      |
@@ -44,7 +44,7 @@ Codex has no in-session cwd-mutation concept (no `/cd`, no `EnterWorktree` tool)
 |-----------------------------|------------------------------------------------------------------------|-----------------------------------------------------------------|---------------------------------------------------------------------------|
 | **Project file**            | `CLAUDE.md`                                                            | `AGENTS.md`                                                     | unchanged                                                                 |
 | **Project override**        | N/A                                                                    | `AGENTS.override.md` (replaces `AGENTS.md`)                     | unchanged                                                                 |
-| **User-tier file**          | `~/.claude/CLAUDE.md`                                                  | `~/.codex/AGENTS.md`                                            | delegated to Codex; provenance mapped                                     |
+| **User-tier file**          | `~/.claude/CLAUDE.md`                                                  | `~/.codex/AGENTS.md`                                            | `AGENTS.md` delegated to Codex; `AGENTS.local.md` rendered by plugin      |
 | **Subdir variants**         | `<dir>/.claude/CLAUDE.md`, `<dir>/.claude/rules`                       | N/A                                                             | N/A                                                                       |
 | **Walk anchor**             | mutable per-agent working directory (resets on `/cd`, `EnterWorktree`) | session-start cwd                                               | per-event: session uses rollout-transcript cwd; subagent uses its own cwd |
 | **Walk shape**              | cwd-ancestor chain up to FS root                                       | project-root (default: nearest `.git`) → cwd                    | project-root → cwd, plus worktree-pivoted parallel walk                   |
@@ -58,6 +58,8 @@ This plugin is a [Codex hook](https://github.com/openai/codex). It registers two
 The plugin never modifies, replaces, or duplicates Codex's native AGENTS.md handling — Codex's own user-role `<INSTRUCTIONS>` block still appears as it always does. The plugin's output is a *sidecar* that surfaces what Codex's native walk would miss and adds a compact provenance map for the native block.
 
 ### Walk strategy
+
+Before the project walk, the plugin reads `AGENTS.local.md` from Codex home (`$CODEX_HOME` / `~/.codex`) as a global additive overlay. `@` references from that file are guarded to Codex home by default, so project files do not gain permission to pull arbitrary files from `~/.codex`.
 
 For each directory in the project-root → active-cwd chain, two filename families are resolved independently:
 
@@ -90,7 +92,7 @@ Expansion is breadth-first. References are deduplicated by canonical path, cycle
 The plugin emits a single block wrapped in `<agents_md_extra_context>…</agents_md_extra_context>` as `additionalContext`. Codex inserts it into the conversation transcript as a developer-role message. Inside, each file body emitted by the plugin is wrapped in its own per-file `<file:… path="…">` tag. Subsections:
 
 - **Codex native AGENTS disambiguation** — metadata-only map for filesystem-backed AGENTS files Codex already rendered natively.
-- **Local AGENTS overlays** — `AGENTS.local.md` bodies.
+- **Local AGENTS overlays** — `AGENTS.local.md` bodies from Codex home and project/worktree directories.
 - **Inherited AGENTS instructions** — project-typed files from main-repo paths Codex's native walk would not have reached.
 - **Referenced document index** — `@`-expanded documents.
 - **Skipped references** — references that hit a guard, with the reason.
@@ -124,6 +126,7 @@ All env vars are optional. Defaults shown.
 | `CODEX_AGENTS_MD_PLUS_MAX_TOTAL_REFERENCE_BYTES` | `131072` | Max total bytes across all referenced files.                                                                               |
 | `CODEX_AGENTS_MD_PLUS_ALLOW_OUTSIDE_ROOT`        | `false`  | Allow `@`-references to resolve outside session/cwd guards.                                                                |
 | `CODEX_AGENTS_MD_PLUS_FALLBACK_FILENAMES`        | `""`     | Comma-separated additional project-doc filenames (e.g., `INSTRUCTIONS.md,CONTRIBUTING.md`). `AGENTS.local.md` is reserved. |
+| `CODEX_AGENTS_MD_PLUS_CODEX_HOME` / `CODEX_HOME` | `~/.codex` | Codex home directory used for native user-doc provenance and the global `AGENTS.local.md` overlay.                         |
 
 ## Install from a local clone
 

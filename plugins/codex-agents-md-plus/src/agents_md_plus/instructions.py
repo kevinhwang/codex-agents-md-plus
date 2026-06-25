@@ -14,6 +14,9 @@ For a given primary directory `d_primary` and its main-worktree-parallel
 directory `d_parallel` (which may be `None`), each filename family resolves
 with per-file precedence: `d_primary/<name>` wins if it exists; otherwise
 `d_parallel/<name>` if it exists; otherwise nothing.
+
+The Codex-home `AGENTS.local.md` overlay is resolved separately because it is
+user-tier guidance, not part of the project directory walk.
 """
 
 from __future__ import annotations
@@ -24,6 +27,12 @@ from .config import Config
 from .models import LOCAL_NAME, InstructionFamily, ResolvedFile
 from .paths import normalize
 from .reader import read_text_capped
+
+
+def resolve_codex_home_overlay(config: Config) -> ResolvedFile | None:
+    if config.codex_home is None:
+        return None
+    return _read_if_present(normalize(config.codex_home) / LOCAL_NAME, InstructionFamily.OVERLAY, config.max_file_bytes)
 
 
 def resolve_for_directory(
